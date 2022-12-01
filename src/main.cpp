@@ -8,10 +8,10 @@
 #include<chrono>
 #include<iostream>
 
-#define HEIGHT 50
-#define WIDTH 50
+#define HEIGHT 500
+#define WIDTH 500
 #define PPM_SCALER 5
-#define SAMPLE_SIZE 2000
+#define SAMPLE_SIZE 1000
 #define BIAS 10.0
 #define TRAIN_PASSES 100
 
