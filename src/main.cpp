@@ -9,7 +9,7 @@
 #define HEIGHT 50
 #define WIDTH 50
 #define PPM_SCALER 5
-#define SAMPLE_SIZE 100
+#define SAMPLE_SIZE 10
 
 typedef float Layer[HEIGHT][WIDTH];
 
