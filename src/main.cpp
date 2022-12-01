@@ -5,11 +5,15 @@
 #include<errno.h>
 #include<math.h>
 #include<limits.h>
+#include<chrono>
+#include<iostream>
 
 #define HEIGHT 50
 #define WIDTH 50
 #define PPM_SCALER 5
-#define SAMPLE_SIZE 10
+#define SAMPLE_SIZE 2000
+#define BIAS 10.0
+#define TRAIN_PASSES 100
 
 typedef float Layer[HEIGHT][WIDTH];
 
@@ -62,6 +66,16 @@ void layer_fill_circle(Layer layer, int cx, int cy, int r, float value)
 
 void layer_save_as_ppm(Layer layer, const char* file_path)
 {
+    float max = layer[0][0];
+    float min = layer[0][0];
+
+    for(int y=0; y<HEIGHT; y++){
+        for(int x=0; x<WIDTH; x++){
+            if(layer[y][x] > max) max = layer[y][x];
+            if(layer[y][x] < min) min = layer[y][x];
+        }
+    }
+
     FILE *f = fopen(file_path, "wb");
 
     if(f == NULL){
@@ -74,10 +88,11 @@ void layer_save_as_ppm(Layer layer, const char* file_path)
 
     for(int y=0; y<HEIGHT*PPM_SCALER; y++){
         for(int x=0; x<WIDTH*PPM_SCALER; x++){
-            float s = layer[y/PPM_SCALER][x/PPM_SCALER];
+            float s = (layer[y/PPM_SCALER][x/PPM_SCALER] - min) / (max - min);
+
             char pixel[3] = {
+                (char) floor(255 * (1-s)),
                 (char) floor(255 * s),
-                0,
                 0
             };
 
@@ -155,33 +170,97 @@ float feed_forward(Layer inputs, Layer weights){
     return output;
 }
 
+void add_inputs_to_weights(Layer inputs, Layer weights)
+{
+    for(int y=0; y<HEIGHT; y++){
+        for(int x=0; x<WIDTH; x++){
+            weights[y][x] += inputs[y][x];
+        }
+    }
+}
+
+void sub_inputs_from_weights(Layer inputs, Layer weights)
+{
+    for(int y=0; y<HEIGHT; y++){
+        for(int x=0; x<WIDTH; x++){
+            weights[y][x] -= inputs[y][x];
+        }
+    }
+}
+
+int train_pass(Layer inputs, Layer weights)
+{
+    int adj = 0;
+
+    for(int i=0; i<SAMPLE_SIZE; i++){
+        layer_random_circle(inputs);
+        if(feed_forward(inputs, weights) < BIAS){
+            add_inputs_to_weights(inputs, weights);
+            adj++;
+        }
+
+        layer_random_rect(inputs);
+        if(feed_forward(inputs, weights) > BIAS){
+            sub_inputs_from_weights(inputs, weights);
+            adj++;
+        }
+    }
+
+    return adj;
+}
+
+int check_pass(Layer inputs, Layer weights)
+{
+    int adj = 0;
+
+    for(int i=0; i<SAMPLE_SIZE; i++){
+        layer_random_rect(inputs);
+        if(feed_forward(inputs, weights) > BIAS){
+            adj++;
+        }
+
+        layer_random_circle(inputs);
+        if(feed_forward(inputs, weights) < BIAS){
+            adj++;
+        }
+    }
+
+    return adj;
+}
+
 static Layer inputs;
 static Layer weights;
 
 int main()
 {
-    char file_path[256];
+    int adj, i=0;
 
-#define PREFIX "rect"
+    printf("Sample Size = %d\n", SAMPLE_SIZE);
+    
+    // check on untrained model
+    srand(420);
+    adj = check_pass(inputs, weights);
+    printf("The fail rate on untrained model %g%%\n", (adj / (SAMPLE_SIZE * 2.0))*100);
 
-    for(int i=0; i<SAMPLE_SIZE; i++){
-        printf("[INFO] generating "PREFIX"-%d\n", i);
+    // training 
+    auto start = std::chrono::high_resolution_clock::now();
 
-        layer_random_rect(inputs);
+    printf("Started training ...");
+    do{
+        i++;
+        srand(69);
+        adj = train_pass(inputs, weights);
 
-        // printf("Saving as .bin ...\n");
-        snprintf(file_path, sizeof(file_path), PREFIX"-%02d.bin", i);
-        layer_save_as_bin(inputs, file_path);
-        // printf("Saving as .ppm ...\n");
-        snprintf(file_path, sizeof(file_path), PREFIX"-%02d.ppm", i);
-        layer_save_as_ppm(inputs, file_path);
-    }
+        // printf("adjusted %d times\n", adj);
+    }while(adj > 0);
+    auto finish = std::chrono::high_resolution_clock::now();
+    printf("Done in ");
+    std::cout << std::chrono::duration_cast<std::chrono::seconds>(finish-start).count() << "sec\n";
 
-    // layer_fill_rect(inputs, 0, 0, WIDTH/2, HEIGHT/2, 1.0f);
-    // layer_fill_circle(inputs, WIDTH/2, HEIGHT/2, WIDTH/2, 1.0f);
-    // layer_save_as_bin(inputs, "inputs.bin");
-    // float output = feed_forward(inputs, weights);
-    // printf("output = %f\n", output);
+    // check on trained model
+    srand(420);
+    adj = check_pass(inputs, weights);
+    printf("The fail rate on trained model %g%%\n", (adj / (SAMPLE_SIZE * 2.0))*100);
 
     return 0;
 }
