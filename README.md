@@ -8,8 +8,8 @@ $ gcc main.cpp -o main
 $ ./main
 ```
 
-## Perceptron Weight (Samples # = 500)
-![weight](https://i.ibb.co/vZTSTxv/perceptron-weight.jpg)
+## Perceptron Weight (Samples # = 200)
+![weight](weights.gif)
 
 ## Performance
 ![performance](https://i.ibb.co/H2xd7bW/perceptron-performance.png)

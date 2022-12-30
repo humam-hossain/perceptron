@@ -11,7 +11,7 @@
 #define HEIGHT 500
 #define WIDTH 500
 #define PPM_SCALER 5
-#define SAMPLE_SIZE 1000
+#define SAMPLE_SIZE 200
 #define BIAS 10.0
 #define TRAIN_PASSES 100
 
@@ -188,6 +188,9 @@ void sub_inputs_from_weights(Layer inputs, Layer weights)
     }
 }
 
+char file_path[256];
+int l=0;
+
 int train_pass(Layer inputs, Layer weights)
 {
     int adj = 0;
@@ -196,12 +199,20 @@ int train_pass(Layer inputs, Layer weights)
         layer_random_circle(inputs);
         if(feed_forward(inputs, weights) < BIAS){
             add_inputs_to_weights(inputs, weights);
+            snprintf(file_path, sizeof(file_path), "weight-%02d.ppm", l);
+            layer_save_as_ppm(weights, file_path);
+            l++;       
+            
             adj++;
         }
 
         layer_random_rect(inputs);
         if(feed_forward(inputs, weights) > BIAS){
             sub_inputs_from_weights(inputs, weights);
+            snprintf(file_path, sizeof(file_path), "weight-%02d.ppm", l);
+            layer_save_as_ppm(weights, file_path);
+            l++;
+            
             adj++;
         }
     }
@@ -246,12 +257,16 @@ int main()
     auto start = std::chrono::high_resolution_clock::now();
 
     printf("Started training ...");
+
+    snprintf(file_path, sizeof(file_path), "weight-%02d.ppm", i);
+    layer_save_as_ppm(weights, file_path);
+
     do{
         i++;
         srand(69);
         adj = train_pass(inputs, weights);
 
-        // printf("adjusted %d times\n", adj);
+        printf("adjusted %d times\n", adj);
     }while(adj > 0);
     auto finish = std::chrono::high_resolution_clock::now();
     printf("Done in ");
